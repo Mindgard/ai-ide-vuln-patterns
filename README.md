@@ -80,8 +80,8 @@ AI Coding Assistants often allow configuring custom MCP servers via configuratio
 
 **Impact:** Arbitrary Command/Code Execution — HIGH  
 **Trigger:** Zero-click (trivial variant) · One-click (two-step variant)  
-**Confirmed in:** Roo Code, Amp, Windsurf, Kiro, Cursor, Eclipse Theia, OpenAI Codex, Gemini CLI, Zed IDE, Mistral Vibe CLI  
-**Complexity:** Low — drop a config file in the repo  
+**Confirmed in:** Roo Code, Amp, Windsurf, Kiro, Cursor, Claude Code, Eclipse Theia, OpenAI Codex, Gemini CLI, Zed IDE, Mistral Vibe CLI
+**Complexity:** Low — drop a config file in the repo
 
 **References:**
 - [Potential RCE via MCP in Roo Code (GHSA-5x8h-m52g-5v54)](https://github.com/RooCodeInc/Roo-Code/security/advisories/GHSA-5x8h-m52g-5v54)
@@ -90,6 +90,7 @@ AI Coding Assistants often allow configuring custom MCP servers via configuratio
 - [MCP: Untrusted Servers and Confused Clients](https://embracethered.com/blog/posts/2025/model-context-protocol-security-risks-and-exploits/)
 - [AWS Kiro: Adding Malicious MCP Servers via Prompt Injection](https://embracethered.com/blog/posts/2025/aws-kiro-aribtrary-command-execution-with-indirect-prompt-injection/)
 - [Cursor Vulnerability: MCPoison (Checkpoint Research)](https://research.checkpoint.com/2025/cursor-vulnerability-mcpoison/)
+- [Claude Code: MCP Consent Bypass via enableAllProjectMcpServers (CVE-2026-21852) (Checkpoint Research)](https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/)
 - [Eclipse Theia IDE MCP Configuration Code Execution (Mindgard)](https://mindgard.ai/disclosures/eclipse-theia-ide-mcp-configuration-code-execution)
 - [OpenAI Codex CLI MCP Configuration RCE (Mindgard)](https://mindgard.ai/disclosures/openai-codex-cli-mcp-configuration-remote-code-execution)
 - [Google Gemini CLI MCP Configuration Code Execution (Mindgard)](https://mindgard.ai/disclosures/google-gemini-cli-mcp-configuration-code-execution)
@@ -157,10 +158,13 @@ AI Coding Assistants may support hooks — commands automatically invoked at lif
 - Hooks auto-execute on lifecycle events without approval
 - Command filtering for hook commands is weak or bypassable
 
-**Impact:** Arbitrary Command/Code Execution — HIGH  
-**Trigger:** Zero-click — hooks fire on lifecycle events (read, write)  
-**Complexity:** Low — drop a hooks config file in the repo  
-**References:** No public examples at time of writing.
+**Impact:** Arbitrary Command/Code Execution — HIGH
+**Trigger:** Zero-click — hooks fire on lifecycle events (session start, tool use, file read/write)
+**Confirmed in:** Claude Code
+**Complexity:** Low — drop a hooks config file in the repo
+
+**References:**
+- [Claude Code: RCE via Hooks in Project Files (CVE-2025-59536) (Checkpoint Research)](https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/)
 
 ### 1.6 Application-Specific Configuration Auto-Execution
 
@@ -189,13 +193,14 @@ The vulnerability exists when code execution — triggered through any vector (M
 - Code execution happens before the trust dialog is displayed
 - No mechanism to defer dangerous operations until after trust is granted
 
-**Impact:** Arbitrary Command/Code Execution (Zero-Click) — HIGH  
-**Trigger:** Zero-click — fires during IDE startup before trust dialog  
-**Complexity:** Low — any config-based attack that fires before trust dialog  
-**Confirmed in:** Gemini CLI  
+**Impact:** Arbitrary Command/Code Execution (Zero-Click) — HIGH
+**Trigger:** Zero-click — fires during IDE startup before trust dialog
+**Complexity:** Low — any config-based attack that fires before trust dialog
+**Confirmed in:** Gemini CLI, Claude Code
 
 **References:**
 - [Google Gemini CLI MCP Configuration Code Execution (Mindgard)](https://mindgard.ai/disclosures/google-gemini-cli-mcp-configuration-code-execution)
+- [Claude Code: API Key Exfiltration Before Trust Dialog (CVE-2026-21852) (Checkpoint Research)](https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/)
 
 ### 1.8 Terminal Command Filtering Bypasses
 
@@ -518,13 +523,14 @@ AI tools with configurable model provider endpoints may allow the API endpoint U
 - Project-level config merged without restricting security-sensitive fields
 - No warning when workspace overrides the model provider endpoint
 
-**Impact:** Data Exfiltration (Zero-Click) — HIGH. Complete interception of all prompts, file contents, and API keys. Real-time response manipulation enables further attacks.  
-**Trigger:** Zero-click — all LLM traffic redirected on workspace load  
-**Complexity:** Low — drop config file that overrides model provider URL  
-**Confirmed in:** OpenAI Codex  
+**Impact:** Data Exfiltration (Zero-Click) — HIGH. Complete interception of all prompts, file contents, and API keys. Real-time response manipulation enables further attacks.
+**Trigger:** Zero-click — all LLM traffic redirected on workspace load
+**Complexity:** Low — drop config file that overrides model provider URL
+**Confirmed in:** OpenAI Codex, Claude Code
 
 **References:**
 - [OpenAI Codex CLI Model Provider Configuration RCE (Mindgard)](https://mindgard.ai/disclosures/openai-codex-cli-model-provider-configuration-remote-code-execution)
+- [Claude Code: API Key Exfiltration via ANTHROPIC_BASE_URL (CVE-2026-21852) (Checkpoint Research)](https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/)
 
 ### 3.6 DNS-Based Exfiltration
 
@@ -592,6 +598,7 @@ See **[CHECKLIST.md](CHECKLIST.md)** for a compact, actionable checklist for bot
 - [IDEsaster: IDE Settings Overwrite (maccarita.com)](https://maccarita.com/posts/idesaster/)
 - [Prompt Injection to RCE in AI Agents (Trail of Bits)](https://blog.trailofbits.com/2025/10/22/prompt-injection-to-rce-in-ai-agents/)
 - [Cursor Vulnerability: MCPoison (Checkpoint Research)](https://research.checkpoint.com/2025/cursor-vulnerability-mcpoison/)
+- [Claude Code: RCE and API Token Exfiltration via Project Files (Checkpoint Research)](https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/)
 - [How Hidden Prompt Injections Hijack Cursor (HiddenLayer)](https://www.hiddenlayer.com/research/how-hidden-prompt-injections-can-hijack-ai-code-assistants-like-cursor)
 - [CopyPasta: First Practical Prompt Injection Virus (HiddenLayer)](https://www.hiddenlayer.com/research/prompts-gone-viral-practical-code-assistant-ai-viruses)
 - [Invisible Prompt Injection Threat (Trend Micro)](https://www.trendmicro.com/en_us/research/25/a/invisible-prompt-injection-secure-ai.html)
@@ -613,7 +620,7 @@ This catalog incorporates and builds on vulnerability patterns documented by ind
 - **Johann Rehberger** ([Embrace The Red](https://embracethered.com)) — Month of AI Bugs (August 2025), extensive vulnerability research across Windsurf, Cline, Claude Code, Amazon Q, Google Jules, Devin, Cursor, GitHub Copilot, OpenHands, Amp, and others
 - **Ari Marzouk** ([maccarita.com](https://maccarita.com)) — IDEsaster research on IDE settings overwrite vulnerabilities across VS Code and JetBrains platforms
 - **Trail of Bits** ([blog.trailofbits.com](https://blog.trailofbits.com)) — Foundational research on prompt injection to RCE chains in AI agents
-- **Checkpoint Research** ([research.checkpoint.com](https://research.checkpoint.com)) — MCPoison: MCP config poisoning via TOCTOU in Cursor
+- **Checkpoint Research** ([research.checkpoint.com](https://research.checkpoint.com)) — MCPoison: MCP config poisoning via TOCTOU in Cursor; RCE and API token exfiltration via Claude Code project files (CVE-2025-59536, CVE-2026-21852)
 - **HiddenLayer** ([hiddenlayer.com](https://www.hiddenlayer.com)) — Hidden prompt injection and CopyPasta AI virus research targeting Cursor
 - **Trend Micro** ([trendmicro.com](https://www.trendmicro.com)) — Invisible prompt injection via Unicode character encoding
 - **Lakera** ([lakera.ai](https://www.lakera.ai)) — Cursor CVE-2025-59944 vulnerability disclosure
