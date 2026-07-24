@@ -91,11 +91,64 @@ Use this to **test** existing tools and to **build** new ones securely. Every un
 
 ### Network Service Security
 
-*Blocks: [Unauthenticated Local Network Services](README.md#113-unauthenticated-local-network-services)*
+*Blocks: [Unauthenticated Local Network Services](README.md#113-unauthenticated-local-network-services), [Cross-Origin WebSocket Hijack](README.md#62-cross-origin-websocket-hijack-cswsh-of-localhost-agent-server)*
 
 - [ ] Local services exposed during operation require authentication (token, secret)
 - [ ] CORS restricted to same-origin — no cross-origin access from arbitrary websites
+- [ ] WebSocket servers validate the `Origin` header and fail *closed* (reject unknown origins)
 - [ ] Exposed ports are documented, use randomized port selection, and bind to localhost only
+- [ ] Backend RPC/service endpoints that fetch URLs enforce an allowlist blocking loopback, link-local, and cloud-metadata (`169.254.169.254`) addresses
+- [ ] Agent "expose port" / deploy tools require explicit approval and never publish to the public internet silently
+
+### File-System Boundary Integrity
+
+*Blocks: [Symlink & Link-Following Boundary Escape](README.md#51-symlink--link-following-boundary-escape--approval-deception), [Agent File-Tool Confinement & Path-Canonicalization Bypass](README.md#52-agent-file-tool-confinement--path-canonicalization-bypass), [Sandbox Boundary / Trusted-Helper Escape](README.md#117-sandbox-boundary--trusted-helper-escape)*
+
+- [ ] File tools resolve the canonical (symlink-followed) path and enforce the workspace boundary on the *resolved* target, not the requested string
+- [ ] Approval prompts display the canonical resolved target, not the pre-resolution path
+- [ ] Deny rules and privacy ignore-files (`.cursorignore`, `.rooignore`, `private_files`) are enforced by device+inode / canonical path, not string match
+- [ ] Path checks are robust to backslash, NTFS 8.3 names / alternate data streams, case-insensitive filesystems, and `./`/`..` segments
+- [ ] Every file tool (read, write, list, search) applies the same boundary check — no sibling tool skips it
+- [ ] Sandboxed processes cannot plant files (symlinks, hooks, venv interpreters, `.vscode/tasks.json`, Docker socket writes) that an unsandboxed host component later executes
+
+### Agent Protocol Security (ACP / JSON-RPC control planes)
+
+*Blocks: [ACP Attack Surface](README.md#61-acp-agent-client-protocol-attack-surface)*
+
+- [ ] Permission/approval decisions never derive from peer- or model-controlled protocol fields (`toolCall.kind`, tool-name heuristics)
+- [ ] Inbound attachment/resource paths are validated against traversal before dereference
+- [ ] Protocol transports require authentication (bearer token); no unauthenticated TCP, no undocumented `0.0.0.0` bind
+- [ ] Child/subagent sessions cannot escape the parent's security envelope
+- [ ] `file://` and embedded-resource URIs are not silently dereferenced into model context
+- [ ] Prompt/attachment size is bounded to prevent resource-exhaustion DoS
+
+### VCS Metadata & Trust-Dialog Integrity
+
+*Blocks: [Untrusted VCS Metadata Execution](README.md#114-untrusted-vcs-metadata-execution), [Workspace Trust Dialog Bypass](README.md#115-workspace-trust-dialog-bypass)*
+
+- [ ] Repo-local VCS config (`.git/config` `core.fsmonitor`/`core.pager`/`core.editor`, hooks) is not honored for untrusted workspaces
+- [ ] Reflected VCS metadata (branch name, `user.email`, PR title) is never interpolated into a shell command
+- [ ] Trust is derived from the actual folder identity, not spoofable state (worktree `commondir`, headless/CI mode)
+- [ ] Headless/CI invocations do not auto-trust the workspace or auto-enable allowlist bypass
+
+### Supply Chain & Persistence Integrity
+
+*Blocks: [Agent Config Worm](README.md#71-agent-config-worm--harness-poisoning), [Agent-in-CI PI → Supply Chain](README.md#72-agent-in-ci-prompt-injection-to-supply-chain), [Memory-Persistent Injection](README.md#73-memory-persistent-injection-spaiware), [Session-History Tampering](README.md#74-session-history--conversation-state-file-tampering)*
+
+- [ ] Home-directory agent config (`~/.claude`, `~/.gemini`, `.cursor/*.mdc`) is integrity-checked; merge-injected hooks/rules are detected
+- [ ] Agents running in CI do not hold release/publish credentials reachable from untrusted issue/PR content
+- [ ] Long-term memory writes are validated and re-confirmed before being auto-loaded into future sessions
+- [ ] Persisted session/conversation state is integrity-protected; a tampered file cannot fabricate prior authorization
+- [ ] Extension/plugin archives are extracted with path/symlink validation (no Zip-Slip / tar-symlink)
+
+### Tool-Definition & Deeplink Integrity
+
+*Blocks: [MCP Tool-Description Poisoning](README.md#26-mcp-tool-description-poisoning--tool-shadowing), [Deeplink / Custom URI Handler Injection](README.md#118-deeplink--custom-uri-handler-injection), [Webview / Web-UI XSS to Local Code Execution](README.md#119-webview--web-ui-xss-to-local-code-execution)*
+
+- [ ] Tool descriptions from untrusted MCP servers are treated as untrusted data, not instructions
+- [ ] Approval surfaces show the effective tool name and full parameter values; changes to a tool description trigger re-approval
+- [ ] URI-scheme handlers validate parameters and show the full, untruncated effective command before install/apply
+- [ ] Webviews/local web UIs enforce a strict CSP and cannot reach privileged local endpoints (PTY, task-run) from rendered content
 
 ---
 
@@ -114,8 +167,12 @@ Every attack chain flows through one or more chokepoints. The table below maps e
 | **G5 — Command Robustness** | Parsing handles all shell tricks; arguments are sanitized | Terminal filter bypasses, argument injection, env var prefixing, safe-command config abuse |
 | **G6 — Binary Security** | Workspace not in binary search path; integrity verified | Binary planting (zero-click code exec via planted executables) |
 | **G7 — Input Sanitization** | Strip invisible Unicode; sanitize file/dir names; treat external data as untrusted | Covert prompt injection delivery (invisible chars, adversarial dirs) |
-| **G8 — Outbound Controls** | Block or gate all outbound requests from rendering and tool execution | All data exfiltration channels: markdown images, mermaid, DNS, webview, URL fetch, model provider redirect |
-| **G9 — Network Security** | Local services require auth; CORS restricted | Unauthenticated local service exploitation |
+| **G8 — Outbound Controls** | Block or gate all outbound requests from rendering and tool execution | All data exfiltration channels: markdown images, mermaid, DNS, webview, URL fetch, model provider redirect, backend SSRF, port exposure |
+| **G9 — Network Security** | Local services require auth; CORS/Origin restricted and fail-closed | Unauthenticated local service exploitation; cross-origin WebSocket hijack |
+| **G10 — File-System Boundary Integrity** | Enforce workspace/privacy boundaries on the canonical resolved path; approval shows the real target | Symlink & link-following escape, confinement & path-canonicalization bypass, trusted-helper/symlink sandbox escape |
+| **G11 — Protocol Security** | Agent-protocol permission/transport decisions never trust peer- or model-controlled fields; transports authenticated | ACP auto-approval bypass, attachment traversal, unauth transport, envelope bypass, DoS |
+| **G12 — Supply-Chain & Persistence Integrity** | Integrity-check config/memory/session state and archive extraction; keep CI agents away from release creds | Config worms, agent-in-CI supply-chain, SpAIware memory persistence, session-file tampering, archive-extraction traversal |
+| **G13 — VCS & Trust-Dialog Integrity** | Don't honor untrusted VCS metadata; derive trust from real folder identity | VCS-metadata execution, workspace trust-dialog bypass |
 
 ### Pattern-to-Gate Mapping
 
@@ -148,6 +205,34 @@ Every attack chain flows through one or more chokepoints. The table below maps e
 | 4 | [Trust Persistence / TOCTOU](README.md#4-trust-persistence--toctou) | | | **X** | | | | | | |
 
 **X** = primary gate that blocks this pattern. X = secondary/supporting gate.
+
+### Pattern-to-Gate Mapping (patterns 1.14+ and classes 5–7)
+
+These newer patterns map primarily to the added gates G10–G13 (plus existing gates where relevant).
+
+| # | Pattern | Primary gate(s) | Supporting |
+|---|---------|-----------------|------------|
+| 1.14 | [Untrusted VCS Metadata Execution](README.md#114-untrusted-vcs-metadata-execution) | G13 | G1, G5 |
+| 1.15 | [Workspace Trust Dialog Bypass](README.md#115-workspace-trust-dialog-bypass) | G13 | G2 |
+| 1.16 | ["Safe" Read/Search Tool Shell-Out](README.md#116-safe-readsearch-tool-shell-out) | G5 | — |
+| 1.17 | [Sandbox Boundary / Trusted-Helper Escape](README.md#117-sandbox-boundary--trusted-helper-escape) | G10 | G4, G6 |
+| 1.18 | [Deeplink / Custom URI Handler Injection](README.md#118-deeplink--custom-uri-handler-injection) | G1 | G7 |
+| 1.19 | [Webview / Web-UI XSS to Local Code Exec](README.md#119-webview--web-ui-xss-to-local-code-execution) | G9 | G8 |
+| 1.20 | [Extension / Archive Extraction Traversal](README.md#120-extension--archive-extraction-traversal) | G12 | G6 |
+| 2.6 | [MCP Tool-Description Poisoning / Shadowing](README.md#26-mcp-tool-description-poisoning--tool-shadowing) | G7 | G1, G8 |
+| 2.7 | [Toxic Agent Flow / Confused-Deputy](README.md#27-toxic-agent-flow--confused-deputy-via-trusted-connector) | G7 | G8 |
+| 2.8 | [Cross-Agent Privilege Escalation](README.md#28-cross-agent-privilege-escalation) | G4 | G7 |
+| 3.7 | [Backend / Agent RPC SSRF](README.md#37-backend--agent-rpc-ssrf) | G8 | G9 |
+| 3.8 | [Agent Port-Exposure / Dev-Server Exposure](README.md#38-agent-port-exposure--dev-server-internet-exposure) | G8 | G9 |
+| 3.9 | [Terminal Control-Sequence (ANSI) Injection](README.md#39-terminal-control-sequence-ansi-injection) | G7 | G8 |
+| 5.1 | [Symlink & Link-Following Boundary Escape](README.md#51-symlink--link-following-boundary-escape--approval-deception) | G10 | G3, G8 |
+| 5.2 | [Agent File-Tool Confinement & Canonicalization Bypass](README.md#52-agent-file-tool-confinement--path-canonicalization-bypass) | G10 | G4, G8 |
+| 6.1 | [ACP Attack Surface](README.md#61-acp-agent-client-protocol-attack-surface) | G11 | G1, G9 |
+| 6.2 | [Cross-Origin WebSocket Hijack (CSWSH)](README.md#62-cross-origin-websocket-hijack-cswsh-of-localhost-agent-server) | G9 | G11 |
+| 7.1 | [Agent Config Worm / Harness Poisoning](README.md#71-agent-config-worm--harness-poisoning) | G12 | G1, G4 |
+| 7.2 | [Agent-in-CI PI → Supply Chain](README.md#72-agent-in-ci-prompt-injection-to-supply-chain) | G12 | G7 |
+| 7.3 | [Memory-Persistent Injection (SpAIware)](README.md#73-memory-persistent-injection-spaiware) | G12 | G7, G8 |
+| 7.4 | [Session-History / Conversation-State Tampering](README.md#74-session-history--conversation-state-file-tampering) | G12 | G3 |
 
 ### Coverage Summary
 
